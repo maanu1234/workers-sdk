@@ -449,4 +449,67 @@ export default {
 		hello.js:2:36: ERROR: Could not resolve \\"node:async_hooks\\""
 	`);
 	});
+
+	it("should compile a _worker.js/ directory", async () => {
+		mkdirSync("public");
+		mkdirSync("public/_worker.js");
+		writeFileSync(
+			"public/_worker.js/index.js",
+			`
+export default {
+  async fetch(request, env) {
+		return new Response("Hello from _worker.js/index.js");
+	},
+};`
+		);
+		writeFileSync(
+			"public/_worker.js/cat.js",
+			`
+export const cat = "cat";`
+		);
+
+		await runWrangler(
+			`pages functions build --outfile=public/_worker.bundle --compatibility-flag=nodejs_compat`
+		);
+
+		expect(existsSync("public/_worker.bundle")).toBe(true);
+		expect(std.out).toMatchInlineSnapshot(
+			`"🚧 'wrangler pages <command>' is a beta command. Please report any issues to https://github.com/cloudflare/workers-sdk/issues/new/choose"`
+		);
+
+		const workerBundleContents = readFileSync("public/_worker.bundle", "utf-8");
+		const workerBundleWithConstantData = replaceRandomWithConstantData(
+			workerBundleContents,
+			[
+				[/------formdata-undici-0.[0-9]*/g, "------formdata-undici-0.test"],
+				[/functionsWorker-0.[0-9]*.js/g, "functionsWorker-0.test.js"],
+			]
+		);
+
+		expect(workerBundleWithConstantData).toMatchInlineSnapshot(`
+		"------formdata-undici-0.test
+		Content-Disposition: form-data; name=\\"metadata\\"
+
+		{\\"main_module\\":\\"index.js\\"}
+		------formdata-undici-0.test
+		Content-Disposition: form-data; name=\\"index.js\\"; filename=\\"index.js\\"
+		Content-Type: application/javascript+module
+
+
+		export default {
+		  async fetch(request, env) {
+				return new Response(\\"Hello from _worker.js/index.js\\");
+			},
+		};
+		------formdata-undici-0.test
+		Content-Disposition: form-data; name=\\"cat.js\\"; filename=\\"cat.js\\"
+		Content-Type: application/javascript+module
+
+
+		export const cat = \\"cat\\";
+		------formdata-undici-0.test--"
+	`);
+
+		expect(std.err).toMatchInlineSnapshot(`""`);
+	});
 });
