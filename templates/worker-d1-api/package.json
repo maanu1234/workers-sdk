@@ -7,7 +7,7 @@
 		"start": "wrangler dev"
 	},
 	"dependencies": {
-		"hono": "^2.0.2"
+		"hono": "^3.11.7"
 	},
 	"devDependencies": {
 		"@cloudflare/d1": "^1.4.1",
